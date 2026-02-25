@@ -72,6 +72,5 @@ Open **http://localhost:3000** in your browser.
 | OSINT | VirusTotal API, AbuseIPDB API |
 | Styling | Tailwind CSS v4 |
 
-## Team
-Newral
+## Team Newral 
 Built for the **AI-Powered Cybersecurity Hackathon**.
