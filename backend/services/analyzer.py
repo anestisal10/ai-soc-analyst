@@ -1,12 +1,21 @@
 import os
 import asyncio
+import logging
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from google import genai
-from anthropic import AsyncAnthropic
+from groq import AsyncGroq
 import json
+import html
+from urllib.parse import urlparse
 
-from services.osint import check_url_virustotal, check_ip_abuseipdb
+logger = logging.getLogger(__name__)
+
+from services.osint import check_url_virustotal, check_ip_abuseipdb, check_domain_age, trace_url_redirects, check_certificate
+from services.attachment_analyzer import analyze_all_attachments
+from services.threat_intel import generate_stix_bundle, push_to_misp
+from utils.auth_analyzer import analyze_email_headers
+from utils.ioc_utils import is_ip as _is_ip
 
 class OsintResult(BaseModel):
     source: str
@@ -21,6 +30,10 @@ class ThreatReport(BaseModel):
     graph_data: dict
     remediation_script: str
     osint_results: List[OsintResult]
+    attachment_results: List[Dict[str, Any]] = []
+    authentication_results: dict
+    stix_bundle: Optional[str] = None
+    misp_status: Optional[dict] = None
 
 # Define the prompts
 GEMINI_SYSTEM_PROMPT = """
@@ -40,7 +53,7 @@ Return your response entirely as a JSON object matching this schema:
 }
 """
 
-CLAUDE_SYSTEM_PROMPT = """
+GROQ_SYSTEM_PROMPT = """
 You are a Social Engineering and Behavioral Psychology expert specializing in phishing detection.
 Analyze the following email content. Focus ONLY on:
 1. Tone and Urgency (False sense of urgency, threats).
@@ -48,58 +61,89 @@ Analyze the following email content. Focus ONLY on:
 3. Manipulation tactics (Fear, Greed, Curiosity).
 
 Produce a concise psychological profile of the attack.
+Return your response entirely as a JSON object matching this schema:
+{
+  "psychological_analysis": "<your detailed profile>",
+  "psychological_score": <1-100 score indicating manipulation severity>
+}
 """
 
 async def call_gemini(content: str) -> dict:
     try:
         # In a real app we'd load from env, using a mock response for now to get the flow right without keys
-        # client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
-        # response = client.models.generate_content(
-        #    model='gemini-3-flash',
-        #    contents=content,
-        #    config=genai.types.GenerateContentConfig(
-        #        system_instruction=GEMINI_SYSTEM_PROMPT,
-        #        response_mime_type="application/json",
-        #    ),
-        # )
-        # return json.loads(response.text)
+        client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+        response = client.models.generate_content(
+           model='gemini-3-flash-preview',
+           contents=content,
+           config=genai.types.GenerateContentConfig(
+               system_instruction=GEMINI_SYSTEM_PROMPT,
+               response_mime_type="application/json",
+           ),
+        )
+        return json.loads(response.text)
         
         # Mocking for immediate frontend development speed
-        await asyncio.sleep(1.5)
-        return {
-            "technical_analysis": "The email contains a hidden anchor tag pointing to a newly registered domain (secure-billing-update.xyz) designed to look like a Microsoft login page. SPF and DKIM signatures are missing, indicating spoofing.",
-            "iocs": ["secure-billing-update.xyz", "104.21.55.12"],
-            "technical_score": 85
-        }
+        # await asyncio.sleep(1.5)
+        # return {
+        #     "technical_analysis": "The email contains a hidden anchor tag pointing to a newly registered domain (secure-billing-update.xyz) designed to look like a Microsoft login page. SPF and DKIM signatures are missing, indicating spoofing.",
+        #     "iocs": ["secure-billing-update.xyz", "104.21.55.12"],
+        #     "technical_score": 85
+        # }
     except Exception as e:
-        print(f"Gemini Error: {e}")
+        logger.error(f"Gemini Error: {e}", exc_info=True)
         return {"technical_analysis": "Error analyzing", "iocs": [], "technical_score": 0}
 
-async def call_claude(content: str) -> dict:
+async def call_groq(content: str) -> dict:
     try:
-         # client = AsyncAnthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
-         # response = await client.messages.create(...)
-
-         # Mocking
-         await asyncio.sleep(1.5)
-         return {
-             "psychological_analysis": "The attacker uses a high-pressure 'Fear' tactic, threatening immediate account suspension within 24 hours. The tone mimics corporate IT authority to bypass critical thinking.",
-             "psychological_score": 90
-         }
+         client = AsyncGroq(api_key=os.environ.get("GROQ_API_KEY", ""))
+         chat_completion = await client.chat.completions.create(
+             messages=[
+                 {"role": "system", "content": GROQ_SYSTEM_PROMPT},
+                 {"role": "user", "content": content}
+             ],
+             model="moonshotai/kimi-k2-instruct-0905",
+             response_format={"type": "json_object"}
+         )
+         result_text = chat_completion.choices[0].message.content
+         return json.loads(result_text)
     except Exception as e:
+        logger.error(f"Groq Error: {e}", exc_info=True)
         return {"psychological_analysis": "Error analyzing", "psychological_score": 0}
 
 async def run_osint_enrichment(iocs: List[str]) -> List[OsintResult]:
-    """Run OSINT enrichment against extracted IoCs using VirusTotal and AbuseIPDB."""
+    """Run OSINT enrichment against extracted IoCs using VirusTotal, AbuseIPDB, and Custom OSINT."""
     results = []
     tasks = []
 
     for ioc in iocs:
-        # Simple heuristic: if it looks like an IP, query AbuseIPDB; otherwise VirusTotal
         if _is_ip(ioc):
             tasks.append(("AbuseIPDB", ioc, check_ip_abuseipdb(ioc)))
         else:
+            # 1. VirusTotal
             tasks.append(("VirusTotal", ioc, check_url_virustotal(ioc)))
+
+            # Extract domain robustly using urlparse
+            if "://" in ioc:
+                parsed = urlparse(ioc)
+                domain = parsed.hostname or ioc
+            elif "/" in ioc:
+                domain = ioc.split("/")[0]
+            else:
+                domain = ioc
+
+            # Strip port if present
+            if ":" in domain:
+                domain = domain.split(":")[0]
+
+            # 2. Domain Age (WHOIS)
+            tasks.append(("WHOIS", domain, check_domain_age(domain)))
+
+            # 3. Certificate Transparency (crt.sh)
+            tasks.append(("Certificate (crt.sh)", domain, check_certificate(domain)))
+
+            # 4. Redirect Tracing
+            url = ioc if "://" in ioc else f"http://{ioc}"
+            tasks.append(("Redirect Trace", url, trace_url_redirects(url)))
 
     # Run all OSINT lookups in parallel
     enrichment_results = await asyncio.gather(*[t[2] for t in tasks], return_exceptions=True)
@@ -113,16 +157,9 @@ async def run_osint_enrichment(iocs: List[str]) -> List[OsintResult]:
 
     return results
 
-def _is_ip(value: str) -> bool:
-    """Simple check if a string looks like an IP address."""
-    parts = value.split(".")
-    if len(parts) != 4:
-        return False
-    return all(p.isdigit() and 0 <= int(p) <= 255 for p in parts)
 
 async def generate_remediation(iocs: List[str]) -> str:
     if not iocs: return "No IoCs found to block."
-    # Mocking a Palo Alto rule generation
     rule = f"""<entry name="Block_Phishing_Campaign_Auto">
   <from><member>any</member></from>
   <to><member>any</member></to>
@@ -130,7 +167,7 @@ async def generate_remediation(iocs: List[str]) -> str:
   <destination>
 """
     for ioc in iocs:
-         rule += f"    <member>{ioc}</member>\n"
+        rule += f"    <member>{html.escape(ioc)}</member>\n"
     rule += """  </destination>
   <application><member>any</member></application>
   <service><member>application-default</member></service>
@@ -147,18 +184,30 @@ async def generate_graph(sender: str, urls: List[str], osint_results: List[Osint
         node_id = f"URL_{i}"
         nodes.append({"id": node_id, "group": 2, "label": url})
         links.append({"source": "Sender", "target": node_id})
-        
-        # Add a mock payload node
+
+        # Payload node uses the IoC value as its label
         payload_id = f"Payload_{i}"
-        nodes.append({"id": payload_id, "group": 3, "label": "Credential Harvester"})
+        nodes.append({"id": payload_id, "group": 3, "label": f"Payload: {url}"})
         links.append({"source": node_id, "target": payload_id})
 
     # Add OSINT enrichment nodes
     for osint in osint_results:
         osint_node_id = f"OSINT_{osint.source}_{osint.target}"
-        # Find the matching IoC node to link from
-        malicious_count = osint.data.get("malicious", osint.data.get("abuseConfidenceScore", 0))
-        label = f"{osint.source}: {'🔴 Malicious' if malicious_count > 3 else '🟡 Suspicious' if malicious_count > 0 else '🟢 Clean'}"
+        
+        if "error" in osint.data:
+            label = f"{osint.source}: ⚪ Error"
+        else:
+            malicious_count = osint.data.get("malicious", osint.data.get("abuseConfidenceScore", 0))
+            is_critical = osint.data.get("critical", False)
+            is_suspicious = osint.data.get("suspicious", False)
+            
+            if malicious_count > 3 or is_critical:
+                label = f"{osint.source}: 🔴 Malicious"
+            elif malicious_count > 0 or is_suspicious:
+                label = f"{osint.source}: 🟡 Suspicious"
+            else:
+                label = f"{osint.source}: 🟢 Clean"
+                
         nodes.append({"id": osint_node_id, "group": 4, "label": label})
         
         # Link to the matching IoC node
@@ -169,22 +218,39 @@ async def generate_graph(sender: str, urls: List[str], osint_results: List[Osint
         
     return {"nodes": nodes, "links": links}
 
-async def analyze_content(content: str, sender: str = "Unknown") -> ThreatReport:
+async def analyze_content(content: str, sender: str = "Unknown", attachments: List[dict] = None, raw_bytes: Optional[bytes] = None, status_callback=None) -> ThreatReport:
     """
     Main orchestration function.
-    Calls Gemini, Claude, runs OSINT enrichment, and builds the final report.
+    Calls Gemini, Claude, runs OSINT enrichment, attachment analysis and builds the final report.
     """
     
-    # Run LLM calls in parallel
-    gemini_task = call_gemini(content)
-    claude_task = call_claude(content)
+    if attachments is None:
+        attachments = []
     
-    gemini_res, claude_res = await asyncio.gather(gemini_task, claude_task)
+    if status_callback:
+        await status_callback("Authenticating Infrastructure & Extracting Content")
+    
+    # Check headers deterministically first
+    # Wrapped in to_thread because dkim.verify() does synchronous DNS I/O
+    auth_results = await asyncio.to_thread(analyze_email_headers, content, raw_bytes)
+    
+    if status_callback:
+        await status_callback("Running Dual-Engine AI Analysis & Attachment Scanning")
+        
+    # Run LLM calls and attachment analysis in parallel
+    gemini_task = call_gemini(content)
+    groq_task = call_groq(content)
+    attachment_task = analyze_all_attachments(attachments)
+    
+    gemini_res, groq_res, attachment_res = await asyncio.gather(gemini_task, groq_task, attachment_task)
     
     # Calculate unified score
-    score = (gemini_res.get("technical_score", 0) + claude_res.get("psychological_score", 0)) // 2
+    score = (gemini_res.get("technical_score", 0) + groq_res.get("psychological_score", 0)) // 2
     
     iocs = gemini_res.get("iocs", [])
+
+    if status_callback:
+        await status_callback("Enriching Extracted IoCs via OSINT")
 
     # Run OSINT enrichment on extracted IoCs
     osint_results = await run_osint_enrichment(iocs)
@@ -192,15 +258,27 @@ async def analyze_content(content: str, sender: str = "Unknown") -> ThreatReport
     # Generate graph data (now enriched with OSINT)
     graph_data = await generate_graph(sender, iocs, osint_results)
     
+    if status_callback:
+        await status_callback("Generating STIX Bundle & Graph Data")
+        
     # Generate Remediation
-    remediation = await generate_remediation(iocs)
+    remediation, misp = await asyncio.gather(
+        generate_remediation(iocs),
+        push_to_misp(iocs)
+    )
+    
+    stix = await asyncio.to_thread(generate_stix_bundle, sender, iocs) if iocs else None
     
     return ThreatReport(
         threat_score=score,
         technical_analysis=gemini_res.get("technical_analysis", ""),
-        psychological_analysis=claude_res.get("psychological_analysis", ""),
+        psychological_analysis=groq_res.get("psychological_analysis", ""),
         iocs=iocs,
         graph_data=graph_data,
         remediation_script=remediation,
-        osint_results=osint_results
+        osint_results=osint_results,
+        attachment_results=attachment_res,
+        authentication_results=auth_results,
+        stix_bundle=stix,
+        misp_status=misp
     )

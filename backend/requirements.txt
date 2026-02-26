@@ -4,5 +4,15 @@ python-multipart
 pydantic
 httpx
 google-genai
-anthropic
+groq
+requests
+authres
+dkimpy
+dnspython
 python-dotenv
+python-whois
+# Threat intelligence & attachment scanning
+stix2
+yara-python
+oletools
+pymisp

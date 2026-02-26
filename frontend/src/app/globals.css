@@ -1,26 +1,459 @@
 @import "tailwindcss";
 
+/* ═══════════════════════════════════════════
+   Design Tokens — Editorial Light Precision
+   ═══════════════════════════════════════════ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Backgrounds */
+  --bg-app: #F5F3EE;
+  --bg-card: #FFFFFF;
+  --bg-header: #111111;
+  --bg-muted: #F2F0EB;
+
+  /* Borders */
+  --border-subtle: #E2DFD9;
+  --border-strong: #C9C5BD;
+
+  /* Typography */
+  --text-main: #0F0F0E;
+  --text-muted: #78746D;
+  --text-inverse: #F9F8F6;
+
+  /* Brand Accent — Deep Scarlet */
+  --accent: #C8383A;
+  --accent-hover: #A82D2F;
+  --accent-light: #FFEDED;
+  --accent-border: #F5BABB;
+
+  /* Status — Critical / Red */
+  --status-critical-bg: #FFEDEC;
+  --status-critical-text: #B91C1C;
+  --status-critical-border: #FCA5A5;
+  --status-critical-solid: #C8383A;
+
+  /* Status — Warning / Amber */
+  --status-high-bg: #FFF8EC;
+  --status-high-text: #A85D04;
+  --status-high-border: #FCD58A;
+  --status-high-solid: #D97706;
+
+  /* Status — Safe / Teal-Green */
+  --status-safe-bg: #EDFAF4;
+  --status-safe-text: #15703D;
+  --status-safe-border: #86EFAC;
+  --status-safe-solid: #1A7A4A;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--bg-app);
+  --color-foreground: var(--text-main);
+  --font-sans: var(--font-syne), system-ui, sans-serif;
+  --font-mono: var(--font-dm-mono), monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* ─── Base ─────────────────────────────────── */
+body {
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  font-family: var(--font-syne), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-syne), system-ui, sans-serif;
+  color: var(--text-main);
+  letter-spacing: -0.02em;
+}
+
+/* ─── Top Navigation ────────────────────────── */
+.top-nav {
+  background-color: var(--bg-header);
+  color: var(--text-inverse);
+  border-bottom: 3px solid var(--accent);
+  position: relative;
+}
+
+/* ─── Card System ───────────────────────────── */
+.editorial-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 2px;
+  overflow: hidden;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.editorial-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+/* alias for any existing .saas-card usage */
+.saas-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 2px;
+  overflow: hidden;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.saas-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.saas-card-header,
+.editorial-card-header {
+  padding: 0.875rem 1.25rem;
+  border-bottom: 1px solid var(--border-subtle);
+  font-weight: 700;
+  font-size: 0.6875rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--bg-muted);
+  font-family: var(--font-dm-mono), monospace;
+}
+
+.saas-card-body,
+.editorial-card-body {
+  padding: 1.25rem;
+}
+
+/* ─── Buttons ───────────────────────────────── */
+.btn-primary {
+  background-color: var(--accent);
+  color: white;
+  font-weight: 700;
+  font-family: var(--font-syne), system-ui, sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  border: none;
+  border-radius: 2px;
+  padding: 0.625rem 1.25rem;
+  transition: background-color 0.15s ease, transform 0.1s ease;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--accent-hover);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background-color: #C9C5BD;
+}
+
+.btn-secondary {
+  background-color: transparent;
+  color: var(--text-main);
+  font-weight: 600;
+  font-family: var(--font-syne), system-ui, sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.6875rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 2px;
+  padding: 0.5rem 1rem;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-secondary:hover {
+  background-color: var(--bg-muted);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ─── Badge / Tags ──────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1875rem 0.5rem;
+  border-radius: 2px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  font-family: var(--font-dm-mono), monospace;
+}
+
+.badge-critical {
+  background-color: var(--status-critical-bg);
+  color: var(--status-critical-text);
+  border: 1px solid var(--status-critical-border);
+}
+
+.badge-high {
+  background-color: var(--status-high-bg);
+  color: var(--status-high-text);
+  border: 1px solid var(--status-high-border);
+}
+
+.badge-suspicious {
+  background-color: var(--status-high-bg);
+  color: var(--status-high-text);
+  border: 1px solid var(--status-high-border);
+}
+
+.badge-safe {
+  background-color: var(--status-safe-bg);
+  color: var(--status-safe-text);
+  border: 1px solid var(--status-safe-border);
+}
+
+.badge-neutral {
+  background-color: var(--bg-muted);
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+}
+
+.badge-blue {
+  background-color: #EEF2FF;
+  color: #3730A3;
+  border: 1px solid #C7D2FE;
+}
+
+/* IOC token badges — code pill style */
+.badge-ioc {
+  background-color: #1A1A1A;
+  color: #F5F3EE;
+  border: 1px solid #333;
+  font-family: var(--font-dm-mono), monospace;
+  font-size: 0.6875rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 2px;
+  letter-spacing: 0.02em;
+}
+
+/* ─── Status Dot ────────────────────────────── */
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #22C55E;
+  animation: pulse-dot 2.4s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes pulse-dot {
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.6;
+    transform: scale(0.8);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ─── Inputs ────────────────────────────────── */
+.input-saas,
+.input-editorial {
+  width: 100%;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: 2px;
+  padding: 0.75rem;
+  font-size: 0.8125rem;
+  font-family: var(--font-dm-mono), monospace;
+  color: var(--text-main);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  line-height: 1.6;
+}
+
+.input-saas:focus,
+.input-editorial:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-light);
+}
+
+.input-saas::placeholder,
+.input-editorial::placeholder {
+  color: #BBB7AD;
+  font-family: var(--font-dm-mono), monospace;
+}
+
+/* ─── Code Block ────────────────────────────── */
+.code-block-saas,
+.code-block {
+  background-color: #1A1A1A;
+  color: #C9C5BE;
+  border: 1px solid #2A2A2A;
+  border-radius: 2px;
+  padding: 1rem;
+  overflow-x: auto;
+  font-family: var(--font-dm-mono), monospace;
+  font-size: 0.79rem;
+  line-height: 1.65;
+}
+
+/* ─── Metric Box ────────────────────────────── */
+.metric-box {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 2px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.metric-label {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  margin-bottom: 0.25rem;
+  font-family: var(--font-dm-mono), monospace;
+}
+
+.metric-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-main);
+  font-family: var(--font-syne), system-ui, sans-serif;
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ─── Progress ──────────────────────────────── */
+.progress-bg {
+  width: 100%;
+  background-color: var(--border-subtle);
+  border-radius: 1px;
+  height: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background-color: var(--accent);
+  transition: width 0.5s ease-out;
+}
+
+/* ─── Layout helpers ────────────────────────── */
+.inset-panel {
+  background-color: var(--bg-muted);
+  border: 1px solid var(--border-subtle);
+  border-radius: 2px;
+}
+
+/* ─── Scrollbar ─────────────────────────────── */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #C9C5BD;
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #A09990;
+}
+
+/* ─── Selection ─────────────────────────────── */
+::selection {
+  background: var(--accent-light);
+  color: var(--accent-hover);
+}
+
+/* ─── Section divider label ─────────────────── */
+.section-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-family: var(--font-dm-mono), monospace;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.section-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background-color: var(--border-subtle);
+}
+
+/* ─── Markdown Body ─────────────────────────── */
+.markdown-body p {
+  margin-bottom: 0.75rem;
+}
+
+.markdown-body p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-body strong {
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.markdown-body ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+  margin-bottom: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.markdown-body ol {
+  list-style: decimal;
+  padding-left: 1.25rem;
+  margin-bottom: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.markdown-body li {
+  margin-bottom: 0.25rem;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4 {
+  font-family: var(--font-syne), system-ui, sans-serif;
+  font-weight: 700;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  color: var(--text-main);
 }

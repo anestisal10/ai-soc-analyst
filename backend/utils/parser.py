@@ -1,7 +1,10 @@
 import email
+import logging
 from email import policy
 from pydantic import BaseModel
 from typing import List, Optional
+
+logger = logging.getLogger(__name__)
 
 class ParsedEmail(BaseModel):
     sender: str
@@ -10,6 +13,7 @@ class ParsedEmail(BaseModel):
     body: str
     urls: List[str]
     ips: List[str]
+    attachments: List[dict] = []
 
 def parse_raw_email(raw_content: str) -> ParsedEmail:
     """
@@ -22,6 +26,8 @@ def parse_raw_email(raw_content: str) -> ParsedEmail:
     subject = msg.get("Subject", "")
     
     body = ""
+    attachments = []
+
     if msg.is_multipart():
         for part in msg.walk():
             content_type = part.get_content_type()
@@ -29,14 +35,26 @@ def parse_raw_email(raw_content: str) -> ParsedEmail:
             
             if content_type == "text/plain" and "attachment" not in content_disposition:
                 try:
-                    body += part.get_payload(decode=True).decode()
-                except Exception:
-                    pass
+                    charset = part.get_content_charset() or "utf-8"
+                    body += part.get_payload(decode=True).decode(charset, errors="replace")
+                except Exception as e:
+                    logger.warning(f"Failed to decode plain text part: {e}")
+            elif "attachment" in content_disposition or part.get_filename():
+                filename = part.get_filename() or "unknown.bin"
+                payload = part.get_payload(decode=True)
+                if payload:
+                    attachments.append({
+                        "filename": filename,
+                        "content_type": content_type,
+                        "payload": payload
+                    })
     else:
         try:
-            body = msg.get_payload(decode=True).decode()
-        except Exception:
-            body = msg.get_payload()
+            charset = msg.get_content_charset() or "utf-8"
+            body = msg.get_payload(decode=True).decode(charset, errors="replace")
+        except Exception as e:
+            logger.warning(f"Could not decode non-multipart email payload, falling back to raw: {e}")
+            body = msg.get_payload() or ""
             
     # For MVP, we will rely on Gemini to extract the URLs and IPs 
     # from the body rather than using complex regex here, 
@@ -48,5 +66,6 @@ def parse_raw_email(raw_content: str) -> ParsedEmail:
         subject=subject,
         body=body,
         urls=[],
-        ips=[]
+        ips=[],
+        attachments=attachments
     )

@@ -1,44 +1,44 @@
 # 🛡️ AI SOC Analyst — Cybersecurity Control Center
 
-An AI-powered phishing analysis control center that uses **dual-brain LLM agents** (Google Gemini + Anthropic Claude) for comprehensive threat analysis, **OSINT enrichment** via VirusTotal & AbuseIPDB, and **auto-remediation** with Palo Alto firewall rule generation.
+An AI-powered phishing analysis control center that uses **dual-brain LLM agents** (Google Gemini + Anthropic Claude) for comprehensive threat analysis, **Deep Email Authentication**, **Static Attachment Analysis**, **OSINT enrichment** (VT, AbuseIPDB, crt.sh, WHOIS), and **Threat Intel Automation** (STIX 2.1 & MISP).
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                 Next.js Frontend                     │
+│                 Client Interfaces                    │
 │  ┌──────────┐  ┌──────────────┐  ┌───────────────┐  │
-│  │ Input    │  │ Investigation│  │  Results       │  │
-│  │ Panel +  │  │ Force Graph  │  │  Dashboard     │  │
-│  │ File     │  │              │  │  + Timeline    │  │
-│  │ Upload   │  │              │  │  + Remediation │  │
+│  │ Web App  │  │ Dashboard &  │  │ Chrome        │  │
+│  │ (Next.js)│  │ Invest. Graph│  │ Extension     │  │
 │  └──────────┘  └──────────────┘  └───────────────┘  │
 └─────────────────┬───────────────────────────────────┘
-                  │ REST API
+                  │ REST API & Server-Sent Events
 ┌─────────────────▼───────────────────────────────────┐
 │                FastAPI Backend                        │
 │  ┌──────────────────────────────────────────────┐    │
 │  │          Orchestration Engine                 │    │
 │  │   ┌─────────┐  ┌──────────┐  ┌───────────┐   │    │
 │  │   │ Gemini  │  │  Claude  │  │   OSINT   │   │    │
-│  │   │Technical│  │Psycholog.│  │ VT + AIDB │   │    │
+│  │   │Technical│  │Psycholog.│  │ & Enrchmt │   │    │
 │  │   └─────────┘  └──────────┘  └───────────┘   │    │
 │  └──────────────────────────────────────────────┘    │
-│  ┌──────────┐  ┌──────────────┐  ┌───────────────┐  │
-│  │ Email    │  │ Graph        │  │ Remediation   │  │
-│  │ Parser   │  │ Builder      │  │ Generator     │  │
-│  └──────────┘  └──────────────┘  └───────────────┘  │
+│  ┌──────────┐  ┌─────────────┐   ┌──────────────┐   │
+│  │ Email    │  │ Attachment  │   │ Threat Intel │   │
+│  │ Auth Dt. │  │ Scan (Yara) │   │ (STIX/MISP)  │   │
+│  └──────────┘  └─────────────┘   └──────────────┘   │
 └─────────────────────────────────────────────────────┘
 ```
 
 ## Features
 
-- **🧠 Dual-Brain AI Analysis** — Gemini handles technical IoC extraction; Claude profiles social engineering tactics
-- **🌐 OSINT Enrichment** — Automated VirusTotal URL scanning and AbuseIPDB IP reputation checks
-- **🔗 Interactive Investigation Graph** — Force-directed visualization of attack relationships (sender → URLs → payloads → OSINT)
-- **🛡️ Auto-Remediation** — Generates Palo Alto firewall XML rules to block extracted IoCs
-- **📧 Email Parsing** — Supports `.eml` file upload and raw text input with header extraction
-- **⏱️ Real-Time Pipeline Timeline** — Shows analysis progress step-by-step as each agent completes
+- **🧠 Dual-Brain AI Analysis** — Gemini handles technical IoC extraction; Claude profiles social engineering tactics.
+- **📧 Deep Email Authentication** — Deterministic checks for SPF, DKIM, DMARC, header anomalies, and X-Mailer fingerprinting.
+- **📎 Static Attachment Analysis** — Analyzes attachments (PDFs, macros) safely without detonation using YARA, OLE tools, and custom scanning.
+- **🌐 Advanced Domain Enrichment** — Automated VirusTotal URL scanning, AbuseIPDB IP checks, WHOIS domain age (NRDs), URL unshortening, and SSL/TLS checks via crt.sh.
+- **🔗 Interactive Investigation Graph** — Force-directed visualization of attack relationships (sender → URLs → payloads → OSINT context).
+- **🛡️ Auto-Remediation** — Generates Palo Alto firewall XML rules to block extracted IoCs instantly.
+- **📡 Threat Intel Automation** — Automatically exports structured STIX 2.1 bundles and pushes IoC attributes directly to MISP instances.
+- **🧩 Browser Extension** — Brings AI SOC analysis directly to your browser for quick scoring and URL checking.
 
 ## Quick Start
 
@@ -49,7 +49,21 @@ python -m venv venv
 venv\Scripts\activate        # Windows
 # source venv/bin/activate   # macOS/Linux
 pip install -r requirements.txt
-cp .env.example .env          # Add your API keys
+cp .env.example .env          
+```
+
+**Edit your `.env` file with necessary keys:**
+```env
+GEMINI_API_KEY=your_gemini_api_key_here
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
+VIRUSTOTAL_API_KEY=your_vt_key
+ABUSEIPDB_API_KEY=your_abuseipdb_key
+MISP_URL=https://your-misp-instance.local  # Optional
+MISP_KEY=your_misp_auth_key                # Optional
+```
+
+**Run the backend:**
+```bash
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
@@ -62,14 +76,25 @@ npm run dev
 
 Open **http://localhost:3000** in your browser.
 
+### Chrome Extension (Optional)
+```bash
+cd extension
+npm install
+npm run build
+```
+Load the `dist/` folder as an unpacked extension in Chrome matching `chrome://extensions/`.
+
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
 | Frontend | Next.js 16, React 19, Framer Motion, react-force-graph-2d |
+| Extension | React, Chrome Extension API Manifest V3 |
 | Backend | FastAPI, Python 3.11+ |
 | AI Engines | Google Gemini 3 Flash, Anthropic Claude Sonnet 4.6 |
-| OSINT | VirusTotal API, AbuseIPDB API |
+| Tools/OSINT | VirusTotal API, AbuseIPDB, crt.sh, python-whois, dnspython |
+| Sec Analysis | yara-python, oletools, dkimpy |
+| Threat Intel | stix2, PyMISP |
 | Styling | Tailwind CSS v4 |
 
 ## Team Newral 

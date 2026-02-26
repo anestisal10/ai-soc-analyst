@@ -1,0 +1,176 @@
+/* ai-soc-overlay scoped styles */
+#ai-soc-overlay-root {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 400px;
+    background-color: #0d1117;
+    /* GitHub dark dim style / enterprise dark */
+    color: #c9d1d9;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    z-index: 2147483647;
+    /* Max z-index to stay on top */
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    overflow: hidden;
+    /* For border radius */
+}
+
+/* Header & Dragging */
+#ai-soc-overlay-root .ai-soc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #161b22;
+    border-bottom: 1px solid #30363d;
+    padding: 8px 12px;
+}
+
+#ai-soc-overlay-root .ai-soc-drag-handle {
+    flex-grow: 1;
+    cursor: grab;
+    font-weight: 600;
+    font-size: 13px;
+    color: #e6edf3;
+    user-select: none;
+}
+
+#ai-soc-overlay-root .ai-soc-drag-handle:active {
+    cursor: grabbing;
+}
+
+#ai-soc-overlay-root .ai-soc-close-btn {
+    background: none;
+    border: none;
+    color: #8b949e;
+    font-size: 20px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 4px;
+}
+
+#ai-soc-overlay-root .ai-soc-close-btn:hover {
+    color: #f85149;
+}
+
+/* Body */
+#ai-soc-content-body {
+    padding: 16px;
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+/* Loading */
+.ai-soc-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 30px 0;
+}
+
+.ai-soc-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid rgba(88, 166, 255, 0.2);
+    border-top-color: #58a6ff;
+    border-radius: 50%;
+    animation: ai-soc-spin 1s linear infinite;
+    margin-bottom: 12px;
+}
+
+@keyframes ai-soc-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Error */
+.ai-soc-error {
+    color: #f85149;
+    background-color: rgba(248, 81, 73, 0.1);
+    border: 1px solid rgba(248, 81, 73, 0.4);
+    padding: 12px;
+    border-radius: 6px;
+}
+
+.ai-soc-error h3 {
+    margin-top: 0;
+    margin-bottom: 8px;
+    font-size: 15px;
+}
+
+/* Results layout */
+.ai-soc-header-verdict {
+    background-color: #161b22;
+    padding: 12px;
+    border-radius: 6px;
+    border: 1px solid #30363d;
+    margin-bottom: 16px;
+}
+
+.ai-soc-verdict-title {
+    font-size: 12px;
+    text-transform: uppercase;
+    color: #8b949e;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.ai-soc-verdict-value {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.ai-soc-score {
+    font-size: 13px;
+    color: #8b949e;
+}
+
+.ai-soc-explanation {
+    margin-bottom: 16px;
+    color: #c9d1d9;
+}
+
+.ai-soc-section {
+    margin-bottom: 16px;
+    border-top: 1px solid #30363d;
+    padding-top: 12px;
+}
+
+.ai-soc-section h4 {
+    margin: 0 0 8px 0;
+    font-size: 14px;
+    color: #e6edf3;
+}
+
+.ai-soc-tactics {
+    margin: 0;
+    padding-left: 20px;
+    color: #c9d1d9;
+}
+
+.ai-soc-tactics li {
+    margin-bottom: 4px;
+}
+
+.ai-soc-iocs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.ai-soc-tag {
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    background-color: #21262d;
+    border: 1px solid #30363d;
+    color: #c9d1d9;
+}
