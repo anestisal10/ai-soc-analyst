@@ -6,7 +6,7 @@ An AI-powered phishing analysis control center that uses **dual-brain LLM agents
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                 Client Interfaces                    │
+│                 Client Interfaces                   │
 │  ┌──────────┐  ┌──────────────┐  ┌───────────────┐  │
 │  │ Web App  │  │ Dashboard &  │  │ Chrome        │  │
 │  │ (Next.js)│  │ Invest. Graph│  │ Extension     │  │
@@ -14,14 +14,14 @@ An AI-powered phishing analysis control center that uses **dual-brain LLM agents
 └─────────────────┬───────────────────────────────────┘
                   │ REST API & Server-Sent Events
 ┌─────────────────▼───────────────────────────────────┐
-│                FastAPI Backend                        │
-│  ┌──────────────────────────────────────────────┐    │
-│  │          Orchestration Engine                 │    │
-│  │   ┌─────────┐  ┌──────────┐  ┌───────────┐   │    │
-│  │   │ Gemini  │  │  Claude  │  │   OSINT   │   │    │
-│  │   │Technical│  │Psycholog.│  │ & Enrchmt │   │    │
-│  │   └─────────┘  └──────────┘  └───────────┘   │    │
-│  └──────────────────────────────────────────────┘    │
+│                FastAPI Backend                      │
+│  ┌──────────────────────────────────────────────┐   │
+│  │          Orchestration Engine                │   │
+│  │   ┌─────────┐  ┌──────────┐  ┌───────────┐   │   │
+│  │   │ Gemini  │  │  Claude  │  │   OSINT   │   │   │
+│  │   │Technical│  │Psycholog.│  │ & Enrchmt │   |   │
+│  │   └─────────┘  └──────────┘  └───────────┘   │   │
+│  └──────────────────────────────────────────────┘   │
 │  ┌──────────┐  ┌─────────────┐   ┌──────────────┐   │
 │  │ Email    │  │ Attachment  │   │ Threat Intel │   │
 │  │ Auth Dt. │  │ Scan (Yara) │   │ (STIX/MISP)  │   │
