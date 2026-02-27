@@ -14,9 +14,10 @@ const dmMono = DM_Mono({
   weight: ["400", "500"],
 });
 
+// Fix #28: Updated description to reflect actual stack (Groq/Kimi K2, not Claude)
 export const metadata: Metadata = {
   title: "AI SOC Analyst — Cybersecurity Control Center",
-  description: "AI-powered phishing analysis control center using dual-brain LLM agents (Gemini + Claude) with OSINT enrichment and auto-remediation.",
+  description: "AI-powered phishing analysis control center using dual-brain LLM agents (Gemini + Groq/Kimi K2) with OSINT enrichment and auto-remediation.",
 };
 
 export default function RootLayout({

@@ -3,7 +3,7 @@ import asyncio
 import logging
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
-from google import genai
+from cerebras.cloud.sdk import Cerebras
 from groq import AsyncGroq
 import json
 import html
@@ -36,7 +36,7 @@ class ThreatReport(BaseModel):
     misp_status: Optional[dict] = None
 
 # Define the prompts
-GEMINI_SYSTEM_PROMPT = """
+CEREBRAS_SYSTEM_PROMPT = """
 You are a Tier-3 Cybersecurity SOC Analyst specializing in technical email analysis.
 Analyze the following email content. Focus ONLY on:
 1. Obfuscated URLs, malicious domains, or suspicious IP addresses.
@@ -68,44 +68,61 @@ Return your response entirely as a JSON object matching this schema:
 }
 """
 
-async def call_gemini(content: str) -> dict:
+# Cerebras SDK is synchronous — run it inside a thread to avoid blocking the event loop
+def _sync_call_cerebras(content: str) -> dict:
+    """Synchronous Cerebras call — must be run via asyncio.to_thread."""
+    client = Cerebras(api_key=os.environ.get("CEREBRAS_API_KEY"))
+    completion = client.chat.completions.create(
+        messages=[
+            {"role": "system", "content": CEREBRAS_SYSTEM_PROMPT},
+            {"role": "user", "content": content},
+        ],
+        model="gpt-oss-120b",
+        max_completion_tokens=2048,
+        temperature=0.2,
+        top_p=1,
+        stream=False,
+    )
+    result_text = completion.choices[0].message.content
+    return json.loads(result_text)
+
+
+async def call_cerebras(content: str) -> dict:
+    """Async wrapper around the Cerebras technical analysis call."""
     try:
-        # In a real app we'd load from env, using a mock response for now to get the flow right without keys
-        client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
-        response = client.models.generate_content(
-           model='gemini-3-flash-preview',
-           contents=content,
-           config=genai.types.GenerateContentConfig(
-               system_instruction=GEMINI_SYSTEM_PROMPT,
-               response_mime_type="application/json",
-           ),
-        )
-        return json.loads(response.text)
-        
-        # Mocking for immediate frontend development speed
-        # await asyncio.sleep(1.5)
-        # return {
-        #     "technical_analysis": "The email contains a hidden anchor tag pointing to a newly registered domain (secure-billing-update.xyz) designed to look like a Microsoft login page. SPF and DKIM signatures are missing, indicating spoofing.",
-        #     "iocs": ["secure-billing-update.xyz", "104.21.55.12"],
-        #     "technical_score": 85
-        # }
+        result = await asyncio.to_thread(_sync_call_cerebras, content)
+        if not isinstance(result, dict):
+            logger.warning(f"Cerebras returned unexpected type: {type(result)}")
+            return {"technical_analysis": "Unexpected response format.", "iocs": [], "technical_score": 0}
+        for key in ("technical_analysis", "iocs", "technical_score"):
+            if key not in result:
+                logger.warning(f"Cerebras response missing key '{key}'. Keys present: {list(result.keys())}")
+        return result
     except Exception as e:
-        logger.error(f"Gemini Error: {e}", exc_info=True)
+        logger.error(f"Cerebras Error: {e}", exc_info=True)
         return {"technical_analysis": "Error analyzing", "iocs": [], "technical_score": 0}
 
 async def call_groq(content: str) -> dict:
     try:
-         client = AsyncGroq(api_key=os.environ.get("GROQ_API_KEY", ""))
-         chat_completion = await client.chat.completions.create(
-             messages=[
-                 {"role": "system", "content": GROQ_SYSTEM_PROMPT},
-                 {"role": "user", "content": content}
-             ],
-             model="moonshotai/kimi-k2-instruct-0905",
-             response_format={"type": "json_object"}
-         )
-         result_text = chat_completion.choices[0].message.content
-         return json.loads(result_text)
+        client = AsyncGroq(api_key=os.environ.get("GROQ_API_KEY", ""))
+        chat_completion = await client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": GROQ_SYSTEM_PROMPT},
+                {"role": "user", "content": content}
+            ],
+            model="moonshotai/kimi-k2-instruct-0905",
+            response_format={"type": "json_object"}
+        )
+        result_text = chat_completion.choices[0].message.content
+        result = json.loads(result_text)
+        # Fix #11: Validate required keys
+        if not isinstance(result, dict):
+            logger.warning(f"Groq returned unexpected type: {type(result)}")
+            return {"psychological_analysis": "Unexpected response format.", "psychological_score": 0}
+        for key in ("psychological_analysis", "psychological_score"):
+            if key not in result:
+                logger.warning(f"Groq response missing key '{key}'. Keys present: {list(result.keys())}")
+        return result
     except Exception as e:
         logger.error(f"Groq Error: {e}", exc_info=True)
         return {"psychological_analysis": "Error analyzing", "psychological_score": 0}
@@ -179,7 +196,7 @@ async def generate_graph(sender: str, urls: List[str], osint_results: List[Osint
     """Create a node/link structure for react-force-graph, enriched with OSINT data."""
     nodes = [{"id": "Sender", "group": 1, "label": sender}]
     links = []
-    
+
     for i, url in enumerate(urls):
         node_id = f"URL_{i}"
         nodes.append({"id": node_id, "group": 2, "label": url})
@@ -193,82 +210,87 @@ async def generate_graph(sender: str, urls: List[str], osint_results: List[Osint
     # Add OSINT enrichment nodes
     for osint in osint_results:
         osint_node_id = f"OSINT_{osint.source}_{osint.target}"
-        
+
         if "error" in osint.data:
             label = f"{osint.source}: ⚪ Error"
         else:
             malicious_count = osint.data.get("malicious", osint.data.get("abuseConfidenceScore", 0))
             is_critical = osint.data.get("critical", False)
             is_suspicious = osint.data.get("suspicious", False)
-            
+
             if malicious_count > 3 or is_critical:
                 label = f"{osint.source}: 🔴 Malicious"
             elif malicious_count > 0 or is_suspicious:
                 label = f"{osint.source}: 🟡 Suspicious"
             else:
                 label = f"{osint.source}: 🟢 Clean"
-                
+
         nodes.append({"id": osint_node_id, "group": 4, "label": label})
-        
+
         # Link to the matching IoC node
         for j, url in enumerate(urls):
             if url == osint.target:
                 links.append({"source": f"URL_{j}", "target": osint_node_id})
                 break
-        
+
     return {"nodes": nodes, "links": links}
 
 async def analyze_content(content: str, sender: str = "Unknown", attachments: List[dict] = None, raw_bytes: Optional[bytes] = None, status_callback=None) -> ThreatReport:
     """
     Main orchestration function.
-    Calls Gemini, Claude, runs OSINT enrichment, attachment analysis and builds the final report.
+    Calls Gemini, Groq, runs OSINT enrichment, attachment analysis and builds the final report.
     """
-    
+
     if attachments is None:
         attachments = []
-    
+
     if status_callback:
         await status_callback("Authenticating Infrastructure & Extracting Content")
-    
+
     # Check headers deterministically first
     # Wrapped in to_thread because dkim.verify() does synchronous DNS I/O
     auth_results = await asyncio.to_thread(analyze_email_headers, content, raw_bytes)
-    
+
     if status_callback:
         await status_callback("Running Dual-Engine AI Analysis & Attachment Scanning")
-        
+
     # Run LLM calls and attachment analysis in parallel
-    gemini_task = call_gemini(content)
+    cerebras_task = call_cerebras(content)
     groq_task = call_groq(content)
     attachment_task = analyze_all_attachments(attachments)
-    
-    gemini_res, groq_res, attachment_res = await asyncio.gather(gemini_task, groq_task, attachment_task)
-    
+
+    gemini_res, groq_res, attachment_res = await asyncio.gather(cerebras_task, groq_task, attachment_task)
+
     # Calculate unified score
     score = (gemini_res.get("technical_score", 0) + groq_res.get("psychological_score", 0)) // 2
-    
+
     iocs = gemini_res.get("iocs", [])
+    # Ensure iocs is always a list of strings
+    if not isinstance(iocs, list):
+        logger.warning(f"Gemini iocs field was not a list: {type(iocs)}")
+        iocs = []
+    iocs = [str(ioc) for ioc in iocs if ioc]
 
     if status_callback:
         await status_callback("Enriching Extracted IoCs via OSINT")
 
     # Run OSINT enrichment on extracted IoCs
     osint_results = await run_osint_enrichment(iocs)
-    
+
     # Generate graph data (now enriched with OSINT)
     graph_data = await generate_graph(sender, iocs, osint_results)
-    
+
     if status_callback:
         await status_callback("Generating STIX Bundle & Graph Data")
-        
+
     # Generate Remediation
     remediation, misp = await asyncio.gather(
         generate_remediation(iocs),
         push_to_misp(iocs)
     )
-    
+
     stix = await asyncio.to_thread(generate_stix_bundle, sender, iocs) if iocs else None
-    
+
     return ThreatReport(
         threat_score=score,
         technical_analysis=gemini_res.get("technical_analysis", ""),

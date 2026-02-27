@@ -25,15 +25,29 @@ export default function TopNav() {
                 {/* Nav + Status */}
                 <div className="flex items-center gap-8">
                     <nav className="hidden md:flex items-center gap-6">
-                        {['Dashboard', 'Reports', 'Settings'].map((item, i) => (
+                        {/* Fix #29: Dashboard is the only active page; mark others as coming soon */}
+                        <span
+                            className="text-xs font-bold uppercase tracking-[0.12em]"
+                            style={{
+                                fontFamily: 'var(--font-syne)',
+                                color: '#FFFFFF',
+                                borderBottom: '2px solid var(--accent)',
+                                paddingBottom: '2px',
+                            }}
+                        >
+                            Dashboard
+                        </span>
+                        {['Reports', 'Settings'].map((item) => (
                             <span
                                 key={item}
-                                className="text-xs font-bold uppercase tracking-[0.12em] cursor-pointer transition-colors"
+                                title="Coming soon"
+                                className="text-xs font-bold uppercase tracking-[0.12em] cursor-not-allowed select-none"
                                 style={{
                                     fontFamily: 'var(--font-syne)',
-                                    color: i === 0 ? '#FFFFFF' : '#6B6B6B',
-                                    borderBottom: i === 0 ? '2px solid var(--accent)' : '2px solid transparent',
+                                    color: '#444444',
+                                    borderBottom: '2px solid transparent',
                                     paddingBottom: '2px',
+                                    opacity: 0.45,
                                 }}
                             >
                                 {item}

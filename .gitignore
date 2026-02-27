@@ -9,6 +9,7 @@ __pycache__/
 *$py.class
 *.so
 .Python
+.cache/
 env/
 build/
 develop-eggs/
@@ -16,7 +17,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+/lib/
 lib64/
 parts/
 sdist/
@@ -48,3 +49,8 @@ backend/venv/
 
 # Ignore Gemini artifacts
 .gemini/
+
+# Ignore markdowns for use in the anti-gravity prompts
+ARCHITECTURE.md
+ORCHESTRATION.md
+FUTURE_FEATURES.md

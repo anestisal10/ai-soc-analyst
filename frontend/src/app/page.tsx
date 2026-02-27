@@ -9,12 +9,15 @@ import EmptyState from '@/components/dashboard/EmptyState';
 import PipelineProgress from '@/components/dashboard/PipelineProgress';
 import ReportDashboard from '@/components/dashboard/ReportDashboard';
 import IngestForm from '@/components/dashboard/IngestForm';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import { TimelineStep } from '@/components/dashboard/PipelineTimeline';
 import { ThreatReport } from '@/lib/types';
-import { cardVariants } from '@/lib/animations';
+// Fix #17: Removed unused `cardVariants` import
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
+// Fix #20: 120-second analysis timeout
+const ANALYSIS_TIMEOUT_MS = 120_000;
 
 export default function Home() {
   const [analyzing, setAnalyzing] = useState(false);
@@ -32,6 +35,7 @@ export default function Home() {
   }, []);
 
   const updateTimeline = (steps: TimelineStep[]) => setTimeline([...steps]);
+  void updateTimeline; // suppress unused variable warning
 
   const handleAnalyze = async () => {
     if (!inputText.trim() && !selectedFile) return;
@@ -56,14 +60,21 @@ export default function Home() {
         formData.append('text', inputText);
       }
 
+      // Fix #20: Combine user abort signal with a 120-second timeout signal
+      const timeoutSignal = AbortSignal.timeout(ANALYSIS_TIMEOUT_MS);
+      const combinedSignal = AbortSignal.any
+        ? AbortSignal.any([abortController.signal, timeoutSignal])
+        : abortController.signal;
+
       const response = await fetch(`${API_BASE}/api/analyze`, {
         method: 'POST',
         body: formData,
-        signal: abortController.signal,
+        signal: combinedSignal,
       });
 
       if (!response.ok) {
-        throw new Error(`Server returned ${response.status}`);
+        const detail = await response.json().catch(() => null);
+        throw new Error(detail?.detail ?? `Server returned ${response.status}`);
       }
 
       const reader = response.body?.getReader();
@@ -105,8 +116,9 @@ export default function Home() {
                 } else if (data.type === 'error') {
                   throw new Error(data.message);
                 }
-              } catch (e: any) {
-                if (e.message && !e.message.includes('JSON')) {
+              } catch (e: unknown) {
+                const err = e as Error;
+                if (err.message && !err.message.includes('JSON')) {
                   throw e;
                 }
                 console.error("Error parsing stream chunk", e, dataStr);
@@ -116,14 +128,18 @@ export default function Home() {
         }
       }
 
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
+    } catch (error: unknown) {
+      const err = error as Error;
+      if (err.name === 'AbortError' || err.name === 'TimeoutError') {
+        if (err.name === 'TimeoutError') {
+          setErrorMsg("Analysis timed out after 2 minutes. Please try again.");
+        }
         setAnalyzing(false);
         return;
       }
       console.error("Analysis failed", error);
       setTimeline(prev => prev.map(s => s.status === 'running' ? { ...s, status: 'done' as const, label: `✕ Failed: ${s.label}` } : s));
-      setErrorMsg(error.message || "Analysis failed. Is the backend running?");
+      setErrorMsg(err.message || "Analysis failed. Is the backend running?");
     } finally {
       setAnalyzing(false);
     }
@@ -169,8 +185,12 @@ export default function Home() {
         {/* Analyzing State */}
         {analyzing && !report && <PipelineProgress />}
 
-        {/* Results */}
-        {report && !analyzing && <ReportDashboard report={report} />}
+        {/* Results — wrapped in Error Boundary to prevent full-page crash */}
+        {report && !analyzing && (
+          <ErrorBoundary>
+            <ReportDashboard report={report} />
+          </ErrorBoundary>
+        )}
       </main>
 
       <Footer />

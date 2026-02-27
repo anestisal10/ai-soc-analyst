@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ShieldAlert, Cpu, Activity, Shield, AlertTriangle, Globe, FileText, CheckCircle, Server, Copy } from 'lucide-react';
+import { ShieldAlert, Cpu, Activity, Shield, AlertTriangle, Globe, FileText, CheckCircle, Server, Copy, DownloadCloud } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import ThreatGauge from '@/components/dashboard/ThreatGauge';
 import { ThreatReport } from '@/lib/types';
@@ -21,12 +21,44 @@ const InvestigationGraph = dynamic(() => import('@/components/InvestigationGraph
 
 
 export default function ReportDashboard({ report }: { report: ThreatReport }) {
+    const [isExporting, setIsExporting] = React.useState(false);
+
     // Recompute timestamp each time a new report arrives
     const generatedTime = React.useMemo(
         () => new Date().toLocaleString(),
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [report.threat_score, report.iocs.length, report.technical_analysis]
     );
+
+    const handleExportPdf = async () => {
+        try {
+            setIsExporting(true);
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'}/api/export/pdf`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(report),
+            });
+
+            if (!response.ok) throw new Error("Export failed");
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `threat_report_${new Date().getTime()}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } catch (error) {
+            console.error("PDF Export Error:", error);
+            alert("Failed to export PDF.");
+        } finally {
+            setIsExporting(false);
+        }
+    };
 
     return (
         <div className="flex flex-col gap-7">
@@ -38,12 +70,27 @@ export default function ReportDashboard({ report }: { report: ThreatReport }) {
                 >
                     Analysis Report
                 </h2>
-                <span
-                    className="text-[10px]"
-                    style={{ fontFamily: 'var(--font-dm-mono)', color: 'var(--text-muted)' }}
-                >
-                    Generated · {generatedTime}
-                </span>
+                <div className="flex items-center gap-4">
+                    <span
+                        className="text-[10px]"
+                        style={{ fontFamily: 'var(--font-dm-mono)', color: 'var(--text-muted)' }}
+                    >
+                        Generated · {generatedTime}
+                    </span>
+                    <button
+                        onClick={handleExportPdf}
+                        disabled={isExporting}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold tracking-widest uppercase rounded-sm border transition-colors hover:bg-black/5 disabled:opacity-50 disabled:cursor-not-allowed"
+                        style={{
+                            borderColor: 'var(--accent)',
+                            color: 'var(--accent)',
+                            fontFamily: 'var(--font-dm-mono)'
+                        }}
+                    >
+                        <DownloadCloud className="w-3.5 h-3.5" />
+                        {isExporting ? 'Exporting...' : 'Export PDF'}
+                    </button>
+                </div>
             </div>
 
             {/* Row 1: Threat Gauge + Analysis */}

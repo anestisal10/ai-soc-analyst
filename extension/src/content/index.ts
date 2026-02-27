@@ -1,7 +1,7 @@
 type OsintResult = {
     source: string;
     target: string;
-    data: any;
+    data: Record<string, unknown>;
 };
 
 type AttachmentScan = {
@@ -31,13 +31,13 @@ type ThreatReport = {
     technical_analysis: string;
     psychological_analysis: string;
     iocs: string[];
-    graph_data: any;
+    graph_data: Record<string, unknown>;
     remediation_script: string;
     osint_results: OsintResult[];
     attachment_results: AttachmentResult[];
     authentication_results: AuthenticationResults;
     stix_bundle: string | null;
-    misp_status: any | null;
+    misp_status: Record<string, unknown> | null;
 };
 
 type ExtensionMessage =
@@ -56,8 +56,8 @@ function sanitize(str: string): string {
 }
 
 // Prevent double injection
-if (!(window as any).__aiSocInjected) {
-    (window as any).__aiSocInjected = true;
+if (!(window as { __aiSocInjected?: boolean }).__aiSocInjected) {
+    (window as { __aiSocInjected?: boolean }).__aiSocInjected = true;
     init();
 }
 
@@ -67,20 +67,18 @@ let overlayContainer: HTMLElement | null = null;
 function createDragState() {
     return {
         isDragging: false,
-        currentX: window.innerWidth - 420,
-        currentY: 20,
+        // Fix #10: Track element position (xOffset/yOffset) separately from
+        // initial mouse-down position (initialX/initialY) so multi-drag works correctly.
+        xOffset: window.innerWidth - 420,
+        yOffset: 20,
         initialX: 0,
         initialY: 0,
-        xOffset: 0,
-        yOffset: 0,
-        dragEndHandler: null as EventListener | null,
-        dragHandler: null as EventListener | null,
     };
 }
 
 let dragState = createDragState();
-let _dragEndHandler: any = null;
-let _dragHandler: any = null;
+let _dragEndHandler: EventListener | null = null;
+let _dragHandler: EventListener | null = null;
 
 
 function init() {
@@ -136,7 +134,7 @@ function showOverlay(contentHtml: string) {
         setupDraggable(dragHandle, overlayContainer);
 
         // Initial Position
-        overlayContainer.style.transform = `translate3d(${dragState.currentX}px, ${dragState.currentY}px, 0)`;
+        overlayContainer.style.transform = `translate3d(${dragState.xOffset}px, ${dragState.yOffset}px, 0)`;
 
         // Fade in
         requestAnimationFrame(() => {
@@ -158,45 +156,46 @@ function closeOverlay() {
             overlayContainer = null;
             if (_dragEndHandler) document.removeEventListener("mouseup", _dragEndHandler);
             if (_dragHandler) document.removeEventListener("mousemove", _dragHandler);
+            _dragEndHandler = null;
+            _dragHandler = null;
         }, 300); // Wait for transition
     }
 }
 
 function setupDraggable(dragHandle: HTMLElement, container: HTMLElement) {
-    dragHandle.addEventListener("mousedown", dragStart);
-    document.addEventListener("mouseup", dragEnd);
-    document.addEventListener("mousemove", drag);
-
-    _dragEndHandler = dragEnd;
-    _dragHandler = drag;
-
     function dragStart(e: MouseEvent) {
-        dragState.initialX = e.clientX - dragState.xOffset;
-        dragState.initialY = e.clientY - dragState.yOffset;
-
         if (e.target === dragHandle) {
             dragState.isDragging = true;
+            // Store the mouse position offset relative to the current element position
+            dragState.initialX = e.clientX - dragState.xOffset;
+            dragState.initialY = e.clientY - dragState.yOffset;
         }
     }
 
+    // Fix #10: Corrected drag logic.
+    // initialX/Y = mouse position where drag started, relative to element origin.
+    // xOffset/yOffset = element's current position (updated during drag).
+    // On dragEnd, we only clear isDragging — xOffset/yOffset persist correctly
+    // so the next drag starts from the last correct position.
     function dragEnd() {
-        dragState.initialX = dragState.currentX;
-        dragState.initialY = dragState.currentY;
         dragState.isDragging = false;
     }
 
     function drag(e: MouseEvent) {
         if (dragState.isDragging) {
             e.preventDefault();
-            dragState.currentX = e.clientX - dragState.initialX;
-            dragState.currentY = e.clientY - dragState.initialY;
-
-            dragState.xOffset = dragState.currentX;
-            dragState.yOffset = dragState.currentY;
-
-            container.style.transform = `translate3d(${dragState.currentX}px, ${dragState.currentY}px, 0)`;
+            dragState.xOffset = e.clientX - dragState.initialX;
+            dragState.yOffset = e.clientY - dragState.initialY;
+            container.style.transform = `translate3d(${dragState.xOffset}px, ${dragState.yOffset}px, 0)`;
         }
     }
+
+    dragHandle.addEventListener("mousedown", dragStart);
+    document.addEventListener("mouseup", dragEnd);
+    document.addEventListener("mousemove", drag);
+
+    _dragEndHandler = dragEnd as EventListener;
+    _dragHandler = drag as EventListener;
 }
 
 function getScoreColor(score: number): string {

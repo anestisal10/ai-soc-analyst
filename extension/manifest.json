@@ -14,18 +14,5 @@
     "background": {
         "service_worker": "dist/background/service-worker.js",
         "type": "module"
-    },
-    "content_scripts": [
-        {
-            "matches": [
-                "<all_urls>"
-            ],
-            "js": [
-                "dist/content/index.js"
-            ],
-            "css": [
-                "src/content/content.css"
-            ]
-        }
-    ]
+    }
 }

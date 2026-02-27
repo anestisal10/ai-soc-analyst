@@ -1,18 +1,23 @@
-fastapi
-uvicorn[standard]
-python-multipart
-pydantic
-httpx
-google-genai
-groq
-requests
-authres
-dkimpy
-dnspython
-python-dotenv
-python-whois
+# AI SOC Analyst — Backend Dependencies
+# Fixed: Added version pins for reproducible builds (#14)
+# Fixed: Removed unused 'requests' package (#15)
+fastapi==0.115.12
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+pydantic==2.11.1
+httpx==0.28.1
+cerebras-cloud-sdk==1.17.0
+groq==0.26.0
+authres==1.2.0
+dkimpy==1.1.7
+dnspython==2.7.0
+python-dotenv==1.1.0
+python-whois==0.9.5
 # Threat intelligence & attachment scanning
-stix2
-yara-python
-oletools
-pymisp
+stix2==3.0.1
+yara-python==4.5.4
+oletools==0.60.2
+pymisp==2.5.32
+diskcache==5.6.3
+fpdf2==2.8.2
+
