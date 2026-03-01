@@ -4,7 +4,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { ShieldAlert, Cpu, Activity, Shield, AlertTriangle, Globe, FileText, CheckCircle, Server, Copy, DownloadCloud } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import ThreatGauge from '@/components/dashboard/ThreatGauge';
+import ThreatWaterfall from '@/components/dashboard/ThreatWaterfall';
 import { ThreatReport } from '@/lib/types';
 import { cardVariants } from '@/lib/animations';
 import ReactMarkdown from 'react-markdown';
@@ -111,7 +111,7 @@ export default function ReportDashboard({ report }: { report: ThreatReport }) {
                         Overall Risk Score
                     </div>
                     <div className="editorial-card-body flex-1 flex flex-col items-center justify-center py-8">
-                        <ThreatGauge score={report.threat_score} />
+                        <ThreatWaterfall score={report.threat_score} breakdown={report.score_breakdown} />
                         {report.threat_score >= 70 && (
                             <div className="mt-6 w-full text-center">
                                 <p

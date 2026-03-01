@@ -9,9 +9,11 @@ import EmptyState from '@/components/dashboard/EmptyState';
 import PipelineProgress from '@/components/dashboard/PipelineProgress';
 import ReportDashboard from '@/components/dashboard/ReportDashboard';
 import IngestForm from '@/components/dashboard/IngestForm';
+import ControlCenterHome from '@/components/dashboard/ControlCenterHome';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { TimelineStep } from '@/components/dashboard/PipelineTimeline';
 import { ThreatReport } from '@/lib/types';
+import { LayoutDashboard, Search } from 'lucide-react';
 // Fix #17: Removed unused `cardVariants` import
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
@@ -20,9 +22,11 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 const ANALYSIS_TIMEOUT_MS = 120_000;
 
 export default function Home() {
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'investigation'>('dashboard');
   const [analyzing, setAnalyzing] = useState(false);
   const [report, setReport] = useState<ThreatReport | null>(null);
   const [inputText, setInputText] = useState('');
+  const [dataType, setDataType] = useState('Email');
   const [fileName, setFileName] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [timeline, setTimeline] = useState<TimelineStep[]>([]);
@@ -54,6 +58,8 @@ export default function Home() {
 
     try {
       const formData = new FormData();
+      formData.append('data_type', dataType);
+
       if (selectedFile) {
         formData.append('file', selectedFile);
       } else {
@@ -153,43 +159,71 @@ export default function Home() {
       <TopNav />
       <HeaderBar />
 
+      {/* ══ Tab Navigation ══ */}
+      <div className="w-full max-w-[1440px] mx-auto px-6 mt-6">
+        <div className="flex border-b border-[var(--border-subtle)] gap-6">
+          <button
+            onClick={() => setActiveTab('dashboard')}
+            className={`flex items-center gap-2 px-1 py-3 text-sm font-bold tracking-wide uppercase transition-colors border-b-2 ${activeTab === 'dashboard' ? 'border-[var(--accent)] text-[var(--accent)]' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
+          >
+            <LayoutDashboard className="w-4 h-4" />
+            System Dashboard
+          </button>
+          <button
+            onClick={() => setActiveTab('investigation')}
+            className={`flex items-center gap-2 px-1 py-3 text-sm font-bold tracking-wide uppercase transition-colors border-b-2 ${activeTab === 'investigation' ? 'border-[var(--accent)] text-[var(--accent)]' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
+          >
+            <Search className="w-4 h-4" />
+            Investigation Workspace
+          </button>
+        </div>
+      </div>
+
       {/* ══ Main Content ══ */}
       <main className="flex-1 w-full max-w-[1440px] mx-auto px-6 py-8 flex flex-col gap-8">
 
-        {/* Input Card */}
-        <IngestForm
-          inputText={inputText}
-          setInputText={setInputText}
-          fileName={fileName}
-          setFileName={setFileName}
-          selectedFile={selectedFile}
-          setSelectedFile={setSelectedFile}
-          analyzing={analyzing}
-          handleAnalyze={handleAnalyze}
-          timeline={timeline}
-        />
+        {activeTab === 'dashboard' ? (
+          <ControlCenterHome onInvestigate={() => setActiveTab('investigation')} />
+        ) : (
+          <>
+            {/* Input Card */}
+            <IngestForm
+              inputText={inputText}
+              setInputText={setInputText}
+              dataType={dataType}
+              setDataType={setDataType}
+              fileName={fileName}
+              setFileName={setFileName}
+              selectedFile={selectedFile}
+              setSelectedFile={setSelectedFile}
+              analyzing={analyzing}
+              handleAnalyze={handleAnalyze}
+              timeline={timeline}
+            />
 
-        {/* ══ Results Dashboard ══ */}
+            {/* ══ Results Dashboard ══ */}
 
-        {/* Error State */}
-        {errorMsg && !analyzing && (
-          <div className="p-5 border border-red-200 bg-red-50 text-red-700 rounded-lg shadow-sm" style={{ fontFamily: 'var(--font-dm-mono)' }}>
-            <h3 className="font-bold text-lg mb-2 flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-red-600"></div> Error During Analysis</h3>
-            <p className="text-sm">{errorMsg}</p>
-          </div>
-        )}
+            {/* Error State */}
+            {errorMsg && !analyzing && (
+              <div className="p-5 border border-red-200 bg-red-50 text-red-700 rounded-lg shadow-sm" style={{ fontFamily: 'var(--font-dm-mono)' }}>
+                <h3 className="font-bold text-lg mb-2 flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-red-600"></div> Error During Analysis</h3>
+                <p className="text-sm">{errorMsg}</p>
+              </div>
+            )}
 
-        {/* Empty State */}
-        {!report && !analyzing && !errorMsg && <EmptyState />}
+            {/* Empty State */}
+            {!report && !analyzing && !errorMsg && <EmptyState />}
 
-        {/* Analyzing State */}
-        {analyzing && !report && <PipelineProgress />}
+            {/* Analyzing State */}
+            {analyzing && !report && <PipelineProgress />}
 
-        {/* Results — wrapped in Error Boundary to prevent full-page crash */}
-        {report && !analyzing && (
-          <ErrorBoundary>
-            <ReportDashboard report={report} />
-          </ErrorBoundary>
+            {/* Results — wrapped in Error Boundary to prevent full-page crash */}
+            {report && !analyzing && (
+              <ErrorBoundary>
+                <ReportDashboard report={report} />
+              </ErrorBoundary>
+            )}
+          </>
         )}
       </main>
 

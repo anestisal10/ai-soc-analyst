@@ -69,3 +69,22 @@ def parse_raw_email(raw_content: str) -> ParsedEmail:
         ips=[],
         attachments=attachments
     )
+
+def parse_telemetry(raw_content: str, data_type: str) -> ParsedEmail:
+    """
+    Dispatcher to parse either raw emails or generic telemetry (logs, pcaps, etc).
+    """
+    if data_type == "Email":
+        return parse_raw_email(raw_content)
+    
+    # Generic fallback for logs, alerts, or raw text
+    return ParsedEmail(
+        sender="System",
+        recipient="Analyst",
+        subject=f"Raw {data_type}",
+        body=raw_content.strip(),
+        urls=[],
+        ips=[],
+        attachments=[]
+    )
+

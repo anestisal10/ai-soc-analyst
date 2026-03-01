@@ -86,7 +86,7 @@ async def lifespan(app: FastAPI):
 from services.analyzer import analyze_content, ThreatReport
 from services.cache import generate_hash, get_cached_report, set_cached_report
 from services.pdf_exporter import generate_pdf_report
-from utils.parser import parse_raw_email
+from utils.parser import parse_raw_email, parse_telemetry
 
 app = FastAPI(title="AI Phishing Analyzer API", lifespan=lifespan)
 
@@ -116,7 +116,8 @@ def health_check():
 async def analyze_endpoint(
     request: Request,
     text: Optional[str] = Form(None),
-    file: Optional[UploadFile] = File(None)
+    file: Optional[UploadFile] = File(None),
+    data_type: str = Form("Email")
 ):
     """
     Endpoint to analyze either pasted text or an uploaded .eml file.
@@ -150,8 +151,11 @@ async def analyze_endpoint(
 
         raw_content = raw_bytes.decode("utf-8", errors="ignore")
         try:
-            parsed = parse_raw_email(raw_content)
-            content_to_analyze = f"Headers:\nFrom: {parsed.sender}\nTo: {parsed.recipient}\nSubject: {parsed.subject}\n\nBody:\n{parsed.body}".strip()
+            parsed = parse_telemetry(raw_content, data_type)
+            if data_type == "Email":
+                content_to_analyze = f"Headers:\nFrom: {parsed.sender}\nTo: {parsed.recipient}\nSubject: {parsed.subject}\n\nBody:\n{parsed.body}".strip()
+            else:
+                content_to_analyze = f"Data Type: {data_type}\n\nContent:\n{parsed.body}".strip()
 
             if not content_to_analyze or len(content_to_analyze) < 10:
                 raise ValueError("Parsed content is too short or empty")
@@ -166,8 +170,11 @@ async def analyze_endpoint(
         if not content_to_analyze or len(content_to_analyze) < 10:
             raise HTTPException(status_code=400, detail="Text content must be at least 10 characters long.")
 
+        if data_type != "Email":
+            content_to_analyze = f"Data Type: {data_type}\n\nContent:\n{content_to_analyze}"
+
         # Try to do a basic extraction if they just pasted headers + body
-        if "From:" in text:
+        if data_type == "Email" and "From:" in text:
             try:
                 sender = text.split("From:")[1].split("\n")[0].strip()
             except Exception as e:
@@ -201,7 +208,8 @@ async def analyze_endpoint(
                     sender=sender,
                     attachments=parsed.attachments if parsed else None,
                     raw_bytes=raw_bytes,
-                    status_callback=status_callback
+                    status_callback=status_callback,
+                    data_type=data_type
                 )
                 
                 report_dict = report.model_dump()

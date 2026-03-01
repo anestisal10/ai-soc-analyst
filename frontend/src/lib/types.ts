@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export interface OsintResult {
     source: string;
     target: string;
@@ -22,6 +23,12 @@ export interface GraphData {
 
 export interface ThreatReport {
     threat_score: number;
+    score_breakdown: {
+        factor: string;
+        score: number;
+        type: string;
+        description: string;
+    }[];
     technical_analysis: string;
     psychological_analysis: string;
     iocs: string[];

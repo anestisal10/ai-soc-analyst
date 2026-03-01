@@ -49,6 +49,7 @@ backend/venv/
 
 # Ignore Gemini artifacts
 .gemini/
+.agent/
 
 # Ignore markdowns for use in the anti-gravity prompts
 ARCHITECTURE.md

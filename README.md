@@ -1,37 +1,51 @@
 # 🛡️ AI SOC Analyst — Cybersecurity Control Center
 
-An AI-powered phishing analysis control center that uses **dual-brain LLM agents** (Cerebras `gpt-oss-120b` + Groq / Kimi K2) for comprehensive threat analysis, **Deep Email Authentication**, **Static Attachment Analysis**, **OSINT enrichment** (VT, AbuseIPDB, crt.sh, WHOIS), and **Threat Intel Automation** (STIX 2.1 & MISP).
+An AI-powered cybersecurity control center that uses **dual-brain LLM agents** (Cerebras `gpt-oss-120b` + Groq / Kimi K2 `moonshotai/kimi-k2-instruct-0905`) for comprehensive threat analysis. Supports **generic telemetry ingestion** (emails, firewall logs, SIEM alerts, network captures), **Deep Email Authentication**, **Static Attachment Analysis**, **OSINT enrichment** (VirusTotal, AbuseIPDB, crt.sh, WHOIS), **Threat Intel Automation** (STIX 2.1 & MISP), and an **operational Control Center dashboard**.
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                 Client Interfaces                   │
-│  ┌──────────┐  ┌──────────────┐  ┌───────────────┐  │
-│  │ Web App  │  │ Dashboard &  │  │ Chrome        │  │
-│  │ (Next.js)│  │ Invest. Graph│  │ Extension     │  │
-│  └──────────┘  └──────────────┘  └───────────────┘  │
-└─────────────────┬───────────────────────────────────┘
-                  │ REST API & Server-Sent Events
-┌─────────────────▼───────────────────────────────────┐
-│                FastAPI Backend                      │
-│  ┌──────────────────────────────────────────────┐   │
-│  │          Orchestration Engine                │   │
-│  │   ┌─────────┐  ┌──────────┐  ┌───────────┐   │   │
-│  │   │ Gemini  │  │  Claude  │  │   OSINT   │   │   │
-│  │   │Technical│  │Psycholog.│  │ & Enrchmt │   |   │
-│  │   └─────────┘  └──────────┘  └───────────┘   │   │
-│  └──────────────────────────────────────────────┘   │
-│  ┌──────────┐  ┌─────────────┐   ┌──────────────┐   │
-│  │ Email    │  │ Attachment  │   │ Threat Intel │   │
-│  │ Auth Dt. │  │ Scan (Yara) │   │ (STIX/MISP)  │   │
-│  └──────────┘  └─────────────┘   └──────────────┘   │
-└─────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                     Client Interfaces                        │
+│  ┌─────────────────────────┐  ┌──────────────────────────┐   │
+│  │    Web App (Next.js)    │  │    Chrome Extension      │   │
+│  │  ┌────────────────────┐ │  │  (Manifest V3)           │   │
+│  │  │ System Dashboard   │ │  └──────────────────────────┘   │
+│  │  │  KPI · Alert Queue │ │                                 │
+│  │  ├────────────────────┤ │                                 │
+│  │  │Investigation Space │ │                                 │
+│  │  │ Ingest · Report    │ │                                 │
+│  │  │ Graph · Waterfall  │ │                                 │
+│  │  └────────────────────┘ │                                 │
+│  └─────────────────────────┘                                 │
+└─────────────────────┬────────────────────────────────────────┘
+                      │ REST API & Server-Sent Events (SSE)
+┌─────────────────────▼────────────────────────────────────────┐
+│                    FastAPI Backend                           │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │               Orchestration Engine (analyzer.py)       │  │
+│  │  ┌─────────────────┐  ┌──────────────┐  ┌──────────┐   │  │ 
+│  │  │ Cerebras Engine │  │ Groq/KimiK2  │  │  OSINT   │   │  │
+│  │  │  IoC Extraction │  │ Psych. Profil│  │ Enrichmt │   │  │
+│  │  └─────────────────┘  └──────────────┘  └──────────┘   │  │
+│  └────────────────────────────────────────────────────────┘  │
+│  ┌──────────┐  ┌─────────────┐  ┌──────────┐  ┌──────────┐   │
+│  │ Email    │  │ Attachment  │  │ Threat   │  │   PDF    │   │
+│  │ Auth Det.│  │ Scan (YARA) │  │Intel     │  │ Exporter │   │
+│  └──────────┘  └─────────────┘  │(STIX/    │  └──────────┘   │
+│                                  │ MISP)    │                │
+│                                  └──────────┘                │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ## Features
 
+- **🏠 Control Center Dashboard** — Bird's-eye operational view with KPI widgets (Active Threats, Critical Alerts, Avg Threat Score, Automated Remediation %), live Alert Queue table, Threat Volume chart, and Threat Origins map placeholder.
+- **🔍 Investigation Workspace** — Full single-artifact deep-dive analysis with inline telemetry ingestion, pipeline timeline, and report dashboard.
 - **🧠 Dual-Brain AI Analysis** — Cerebras (`gpt-oss-120b`) handles technical IoC extraction at ultra-low latency; Groq / Kimi K2 (`moonshotai/kimi-k2-instruct-0905`) profiles social engineering tactics.
+- **📊 Explainable Threat Score Waterfall** — Animated breakdown showing exactly how each factor contributes to the final threat score (replacing a static gauge).
+- **✍️ Real-Time Threat Annotation** — As users type or paste text, suspicious elements (URLs, urgency keywords, financial triggers) are highlighted inline with tooltips — before the user even hits Analyze.
+- **📡 Generic Telemetry Ingestion** — Data type selector (Phishing Email / Firewall Log / SIEM Alert / Network Capture / Custom) drives which parser and AI prompt are used. Accepts `.eml`, `.txt`, `.msg`, `.csv`, `.json`, `.log`, `.pcap`, `.syslog`.
 - **📧 Deep Email Authentication** — Deterministic checks for SPF, DKIM, DMARC, header anomalies, and X-Mailer fingerprinting.
 - **📎 Static Attachment Analysis** — Analyzes attachments (PDFs, macros) safely without detonation using YARA, OLE tools, and custom scanning.
 - **🌐 Advanced Domain Enrichment** — Automated VirusTotal URL scanning, AbuseIPDB IP checks, WHOIS domain age (NRDs), URL unshortening, and SSL/TLS checks via crt.sh.
@@ -84,20 +98,22 @@ cd extension
 npm install
 npm run build
 ```
-Load the `dist/` folder as an unpacked extension in Chrome matching `chrome://extensions/`.
+Load the `dist/` folder as an unpacked extension in Chrome via `chrome://extensions/`.
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | Next.js 16, React 19, Framer Motion, react-force-graph-2d |
+| Frontend | Next.js, React, Framer Motion, react-force-graph-2d |
+| Fonts | Syne (headings), DM Mono (data/code) |
 | Extension | React, Chrome Extension API Manifest V3 |
 | Backend | FastAPI, Python 3.11+ |
 | AI Engines | Cerebras (`gpt-oss-120b`), Groq / Kimi K2 (`moonshotai/kimi-k2-instruct-0905`) |
 | Tools/OSINT | VirusTotal API, AbuseIPDB, crt.sh, python-whois, dnspython |
 | Sec Analysis | yara-python, oletools, dkimpy |
 | Threat Intel | stix2, PyMISP |
+| Reports | reportlab (PDF generation) |
 | Styling | Tailwind CSS v4 |
 
-## Team Newral 
+## Team Newral
 Built for the **AI-Powered Cybersecurity Hackathon**.

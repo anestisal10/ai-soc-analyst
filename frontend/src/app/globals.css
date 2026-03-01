@@ -457,3 +457,101 @@ h6 {
   margin-bottom: 0.5rem;
   color: var(--text-main);
 }
+
+/* ═══════════════════════════════════════════
+   Real-Time Annotation Styles
+   ═══════════════════════════════════════════ */
+
+/* Text Rendering Layers for the Input Overlay */
+.annotation-layer {
+  font-family: var(--font-dm-mono), monospace;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.annotation-highlight {
+  position: relative;
+  display: inline-block;
+  cursor: help;
+  border-radius: 2px;
+  /* Instead of transparent text letting bg shine through, we use actual colored text in the overlay */
+}
+
+/* URL Highlight */
+.annotation-url {
+  background-color: rgba(253, 224, 71, 0.4); /* yellow-300 transparent */
+  border-bottom: 2px dotted #ca8a04; /* yellow-600 */
+}
+.annotation-url:hover {
+  background-color: rgba(253, 224, 71, 0.6);
+}
+
+/* Urgency Language Highlight */
+.annotation-urgency {
+  background-color: rgba(254, 202, 202, 0.4); /* red-200 transparent */
+  border-bottom: 2px dotted #dc2626; /* red-600 */
+}
+.annotation-urgency:hover {
+  background-color: rgba(254, 202, 202, 0.6);
+}
+
+/* Finance Keyword Highlight */
+.annotation-finance {
+  background-color: rgba(191, 219, 254, 0.4); /* blue-200 transparent */
+  border-bottom: 2px dotted #2563eb; /* blue-600 */
+}
+.annotation-finance:hover {
+  background-color: rgba(191, 219, 254, 0.6);
+}
+
+/* Suspicious Extension Highlight */
+.annotation-extension {
+  background-color: rgba(254, 202, 202, 0.5); /* red-200 transparent */
+  border-bottom: 2px dotted #991b1b; /* red-800 */
+}
+.annotation-extension:hover {
+  background-color: rgba(254, 202, 202, 0.7);
+}
+
+/* Tooltip Content Styling */
+.tooltip-content {
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  width: max-content;
+  max-width: 280px;
+  min-width: 200px;
+  background-color: #111111;
+  color: #F9F8F6;
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  border: 1px solid #333333;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+  font-family: var(--font-syne), system-ui, sans-serif;
+  z-index: 100;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+/* Tooltip Arrow */
+.tooltip-content::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 6px;
+  border-style: solid;
+  border-color: #111111 transparent transparent transparent;
+}
+
+.annotation-highlight:hover .tooltip-content {
+  visibility: visible;
+  opacity: 1;
+  transform: translateX(-50%) translateY(-6px);
+}
